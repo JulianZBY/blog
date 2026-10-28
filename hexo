@@ -1,0 +1,3 @@
+#!/bin/sh
+# exFAT 无符号链接，没有 node_modules/.bin；用 node 直调 hexo
+exec node "$(dirname "$0")/node_modules/hexo/bin/hexo" "$@"
