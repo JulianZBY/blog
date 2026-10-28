@@ -8,3 +8,4 @@ public/
 _multiconfig.yml
 source/_drafts/
 __pycache__/
+.publish-manifest.json

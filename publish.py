@@ -3,9 +3,10 @@
 
 用法: python3 publish.py [--no-build] [--no-push]
 流程: 扫描 /mnt/Data/Vault 根目录笔记 → 挑出 发布:true 的 →
-      转换 wikilink/属性后写入 source/_posts/（目录为脚本托管，全量重建）→
+      转换 wikilink/属性后写入 source/_posts/（只清理自己上次生成的文件）→
       hexo generate → 有远端时 git commit+push。
 """
+import json
 import re
 import shutil
 import subprocess
@@ -14,6 +15,7 @@ from pathlib import Path
 
 VAULT = Path("/mnt/Data/Vault")
 POSTS = Path(__file__).resolve().parent / "source" / "_posts"
+MANIFEST = Path(__file__).resolve().parent / ".publish-manifest.json"
 
 def parse_frontmatter(text):
     """解析《仓库笔记规范》格式的 frontmatter；返回 (props, body)。
@@ -85,9 +87,10 @@ def main():
             selected[note.stem] = (props, body)
     print(f"选中 {len(selected)} 篇: {', '.join(selected) or '（无）'}")
 
-    if POSTS.exists():
-        for f in POSTS.glob("*.md"):
-            f.unlink()
+    # 只删上次由本脚本生成的文章，手写文章（hexo new post）不受影响
+    prev = set(json.loads(MANIFEST.read_text(encoding="utf-8"))) if MANIFEST.exists() else set()
+    for name in prev:
+        (POSTS / name).unlink(missing_ok=True)
     for stem, (props, body) in selected.items():
         fm = ["---", f"title: \"{stem.replace(chr(34), '')}\""]
         date = unquote(str(props.get("创建时间", "")))
@@ -105,6 +108,9 @@ def main():
         (POSTS / f"{stem}.md").write_text("\n".join(fm) + "\n\n" + convert_body(body),
                                           encoding="utf-8")
         print(f"  已转换: {stem}")
+
+    MANIFEST.write_text(json.dumps(sorted(f"{s}.md" for s in selected), ensure_ascii=False),
+                        encoding="utf-8")
 
     if build:
         hexo = Path(__file__).resolve().parent / "node_modules" / "hexo" / "bin" / "hexo"
